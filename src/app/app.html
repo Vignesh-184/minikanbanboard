@@ -1,0 +1,193 @@
+<div class="container" [class.dark-theme]="theme === 'dark'">
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="4" y="5" width="6" height="6" rx="1.5"></rect>
+            <rect x="14" y="5" width="6" height="6" rx="1.5"></rect>
+            <rect x="4" y="13" width="6" height="6" rx="1.5"></rect>
+            <rect x="14" y="13" width="6" height="6" rx="1.5"></rect>
+          </svg>
+        </div>
+        <div>
+          <h1>Task Board</h1>
+        </div>
+      </div>
+
+      <button class="theme-toggle icon-button" type="button" (click)="toggleTheme()" [attr.aria-label]="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+        <svg *ngIf="theme === 'light'" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 1 0 9.8 9.8z"></path>
+        </svg>
+        <svg *ngIf="theme === 'dark'" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"></path>
+        </svg>
+      </button>
+    </header>
+
+    <section class="toolbar-card">
+      <div class="task-form">
+        <div class="field">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 5h10M7 12h10M7 19h6"></path>
+          </svg>
+          <input [(ngModel)]="newTask" placeholder="Task title..." />
+        </div>
+
+        <div class="field">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 6h14M5 12h14M5 18h10"></path>
+          </svg>
+          <input [(ngModel)]="newDesc" placeholder="Task description..." />
+        </div>
+
+        <div class="field select-field" [ngClass]="'priority-' + newPriority">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 4v16M8 5h8l-1.5 3L16 11H8"></path>
+          </svg>
+          <select [(ngModel)]="newPriority">
+            <option *ngFor="let priority of priorities" [value]="priority">
+              {{ getPriorityLabel(priority) }}
+            </option>
+          </select>
+        </div>
+
+        <button class="primary-action" type="button" (click)="addTask()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+          <span>Add Task</span>
+        </button>
+      </div>
+
+      <div class="toolbar-actions">
+        <button class="action-pill" type="button" (click)="undo()" [disabled]="history.length === 0" aria-label="Undo">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 7 4 12l5 5"></path>
+            <path d="M20 17a7 7 0 0 0-7-7H4"></path>
+          </svg>
+          <span>Undo</span>
+        </button>
+
+        <button class="action-pill" type="button" (click)="redo()" [disabled]="redoStack.length === 0" aria-label="Redo">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m15 7 5 5-5 5"></path>
+            <path d="M4 17a7 7 0 0 1 7-7h9"></path>
+          </svg>
+          <span>Redo</span>
+        </button>
+
+        <button class="action-pill danger-pill" type="button" (click)="clearAllTasks()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6h18"></path>
+            <path d="M8 6V4h8v2"></path>
+            <path d="M19 6l-1 13H6L5 6"></path>
+          </svg>
+          <span>Clear All</span>
+        </button>
+      </div>
+
+      <p class="error-message" *ngIf="errorMsg">{{ errorMsg }}</p>
+    </section>
+
+    <section class="filter-bar">
+      <button class="filter-chip" type="button" [class.active]="filter === 'all'" (click)="filter = 'all'">All</button>
+      <button class="filter-chip" type="button" [class.active]="filter === 'todo'" (click)="filter = 'todo'">Todo</button>
+      <button class="filter-chip" type="button" [class.active]="filter === 'inProgress'" (click)="filter = 'inProgress'">In Progress</button>
+      <button class="filter-chip" type="button" [class.active]="filter === 'done'" (click)="filter = 'done'">Done</button>
+    </section>
+
+    <section class="board">
+      <article
+        *ngFor="let column of getVisibleColumns()"
+        class="column"
+        [ngClass]="column.key"
+        (dragover)="allowDrop($event)"
+        (drop)="onDrop(column.key)"
+      >
+        <div class="column-header">
+          <div class="column-title">
+            <span class="column-icon" [ngClass]="column.key">
+              <svg *ngIf="column.icon === 'list'" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 6h12M8 12h12M8 18h12"></path>
+                <circle cx="4" cy="6" r="1"></circle>
+                <circle cx="4" cy="12" r="1"></circle>
+                <circle cx="4" cy="18" r="1"></circle>
+              </svg>
+              <svg *ngIf="column.icon === 'clock'" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="M12 8v5l3 2"></path>
+              </svg>
+              <svg *ngIf="column.icon === 'check'" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="m8.5 12.5 2.5 2.5 4.5-5"></path>
+              </svg>
+            </span>
+            <h2>{{ column.label | uppercase }}</h2>
+          </div>
+          <span class="count-badge">{{ getTasks(column.key).length }}</span>
+        </div>
+
+        <div class="task-list">
+          <div
+            *ngFor="let task of getTasks(column.key); let i = index"
+            class="task-card"
+            [ngClass]="'priority-' + task.priority"
+            draggable="true"
+            (dragstart)="onDragStart(task, column.key)"
+            (dragend)="onDragEnd()"
+          >
+            <div class="task-top">
+              <div class="task-content" *ngIf="!task.editing">
+                <h3>{{ task.title }}</h3>
+                <p>{{ task.description || 'No description added yet.' }}</p>
+              </div>
+
+              <div class="task-edit-form" *ngIf="task.editing">
+                <input [(ngModel)]="task.editTitle" placeholder="Task title" />
+                <input [(ngModel)]="task.editDescription" placeholder="Task description" />
+                <select [(ngModel)]="task.editPriority">
+                  <option *ngFor="let priority of priorities" [value]="priority">
+                    {{ getPriorityLabel(priority) }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="task-actions">
+                <button class="icon-button subtle-button" type="button" (click)="editTask(task)" [attr.aria-label]="task.editing ? 'Save task' : 'Edit task'">
+                  <svg *ngIf="!task.editing" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                    <path d="m13 7 4 4"></path>
+                  </svg>
+                  <svg *ngIf="task.editing" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m5 13 4 4L19 7"></path>
+                  </svg>
+                </button>
+
+                <button class="icon-button subtle-button danger-button" type="button" (click)="deleteTask(column.key, i)" aria-label="Delete task">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="M19 6l-1 13H6L5 6"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="task-footer" *ngIf="!task.editing">
+              <span class="priority-badge" [ngClass]="'priority-' + task.priority">
+                {{ getPriorityLabel(task.priority) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="getTasks(column.key).length === 0">
+            <span>+</span>
+            <p>Drop tasks here or add a new one.</p>
+          </div>
+        </div>
+      </article>
+    </section>
+  </div>
+</div>
